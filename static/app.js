@@ -461,6 +461,7 @@
     clearGlobalError();
     currentSymbol = rawSymbol;
     var norm = clientNormalize(rawSymbol) || rawSymbol;
+    updateResearchFor(norm);
     els.input.value = rawSymbol;
     els.input.setAttribute("aria-invalid", "false");
 
@@ -584,6 +585,340 @@
     return n === null ? null : Math.round(n);
   }
 
+  /* ---------------------------- 1596.HK Sep-2026 research data ---------------------------- */
+  var RESEARCH = {
+    sym: "1596.HK",
+    base: "/static/data/01596/",
+    files: {
+      daily: "01596_daily_ohlc.csv",
+      bars5: "01596_5min_bars.csv",
+      ticks: "01596_ticks_today_20260924.csv"
+    },
+    pageSize: 50,
+    data: null,        // {daily:[], bars5:[], ticks:[]} once loaded
+    tab: "daily",
+    page: 1,
+    date: "all",
+    open: false
+  };
+  var rEls = {};
+
+  function cacheREls() {
+    rEls.panel = $("research-panel");
+    rEls.state = $("r-state");
+    rEls.body = $("r-body");
+    rEls.thead = $("r-thead");
+    rEls.count = $("r-count");
+    rEls.dl = $("r-download");
+    rEls.retry = $("r-retry");
+    rEls.prev = $("r-prev");
+    rEls.next = $("r-next");
+    rEls.pageinfo = $("r-pageinfo");
+    rEls.dateFilter = $("r5-filter");
+    rEls.dateSel = $("r5-date");
+  }
+
+  function parseCsv(text) {
+    // Minimal RFC-4180-ish CSV parser (handles quoted fields, CRLF, trailing
+    // newlines). The research files never contain embedded newlines in quotes,
+    // but the parser tolerates them anyway.
+    var rows = [], cur = [], field = "", inQ = false, i, c;
+    for (i = 0; i < text.length; i++) {
+      c = text[i];
+      if (inQ) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { field += '"'; i++; } else { inQ = false; }
+        } else field += c;
+      } else if (c === '"') {
+        inQ = true;
+      } else if (c === ",") {
+        cur.push(field); field = "";
+      } else if (c === "\n" || c === "\r") {
+        if (c === "\r" && text[i + 1] === "\n") i++;
+        cur.push(field); field = "";
+        if (cur.length > 1 || cur[0] !== "") rows.push(cur);
+        cur = [];
+      } else {
+        field += c;
+      }
+    }
+    cur.push(field);
+    if (cur.length > 1 || cur[0] !== "") rows.push(cur);
+    if (!rows.length) return [];
+    var header = rows[0].map(function (h) { return h.trim(); });
+    return rows.slice(1).map(function (r) {
+      var o = {};
+      header.forEach(function (h, i) { o[h] = (r[i] !== undefined ? r[i] : "").trim(); });
+      return o;
+    });
+  }
+
+  function researchLoadAll(force) {
+    if (RESEARCH.data && !force) return Promise.resolve(RESEARCH.data);
+    var names = ["daily", "bars5", "ticks"];
+    var ps = names.map(function (k) {
+      return fetch(RESEARCH.base + RESEARCH.files[k], { headers: { "Accept": "text/csv" } })
+        .then(function (res) {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.text();
+        })
+        .then(function (txt) { return [k, parseCsv(txt)]; });
+    });
+    return Promise.all(ps).then(function (pairs) {
+      var out = {};
+      pairs.forEach(function (pp) { out[pp[0]] = pp[1]; });
+      RESEARCH.data = out;
+      populateDateFilter();
+      return out;
+    });
+  }
+
+  function populateDateFilter() {
+    var seen = {}, opts = [];
+    (RESEARCH.data.bars5 || []).forEach(function (b) {
+      var d = b.datetime.slice(0, 10);
+      if (!seen[d]) { seen[d] = true; opts.push(d); }
+    });
+    opts.sort();
+    var sel = rEls.dateSel;
+    sel.innerHTML = "";
+    var allOpt = document.createElement("option");
+    allOpt.value = "all";
+    allOpt.textContent = "All dates (Sep 1\u201324) \u00b7 " + (RESEARCH.data.bars5 || []).length + " bars";
+    sel.appendChild(allOpt);
+    opts.forEach(function (d) {
+      var o = document.createElement("option");
+      o.value = d;
+      o.textContent = d;
+      sel.appendChild(o);
+    });
+    sel.value = RESEARCH.date;
+  }
+
+  function researchRowsFor(tab) {
+    if (!RESEARCH.data) return [];
+    if (tab === "daily") return RESEARCH.data.daily;
+    if (tab === "ticks") return RESEARCH.data.ticks;
+    var rows = RESEARCH.data.bars5;
+    if (RESEARCH.date !== "all") {
+      rows = rows.filter(function (b) { return b.datetime.slice(0, 10) === RESEARCH.date; });
+    }
+    return rows;
+  }
+
+  function researchHeaders(tab) {
+    if (tab === "ticks") return ["Time (HKT)", "Price (HKD)", "Volume", "Side"];
+    return ["Date", "Open", "High", "Low", "Close", "Volume", "Turnover (HKD)"];
+  }
+
+  function researchCountText(tab, rows, total) {
+    if (tab === "daily") return rows.length + " trading days (Sep 1\u201324)";
+    if (tab === "ticks") return rows.length + " individual trades \u2014 2026-09-24 only (10:22:18\u201314:00:25 HKT)";
+    if (RESEARCH.date === "all") return total + " five-minute bars \u00b7 18 trading days (Sep 1\u201324)";
+    return rows.length + " of " + total + " five-minute bars on " + RESEARCH.date;
+  }
+
+  function researchDownloadFor(tab) {
+    var map = {
+      daily: ["01596_daily_ohlc.csv", "Download daily OHLC CSV"],
+      bars5: ["01596_5min_bars.csv", "Download 5-minute bars CSV"],
+      ticks: ["01596_ticks_today_20260924.csv", "Download Sep 24 individual trades CSV"]
+    };
+    var m = map[tab];
+    rEls.dl.href = RESEARCH.base + m[0];
+    rEls.dl.setAttribute("download", m[0]);
+    rEls.dl.textContent = m[1];
+    rEls.dl.setAttribute("aria-label", m[1]);
+  }
+
+  function setResearchState(msg, kind) {
+    rEls.state.hidden = !msg;
+    rEls.state.textContent = msg || "";
+    rEls.state.className = "state-line" + (kind ? " " + kind : "");
+  }
+
+  function renderResearchTable() {
+    var tab = RESEARCH.tab;
+    var total = RESEARCH.data ? researchRowsFor(tab).length : 0;
+    var rows = researchRowsFor(tab);
+    var pages = Math.max(1, Math.ceil(rows.length / RESEARCH.pageSize));
+    if (RESEARCH.page > pages) RESEARCH.page = pages;
+    if (RESEARCH.page < 1) RESEARCH.page = 1;
+
+    // header
+    var heads = researchHeaders(tab);
+    rEls.thead.innerHTML = "";
+    var tr = document.createElement("tr");
+    heads.forEach(function (h) {
+      var th = document.createElement("th");
+      th.textContent = h;
+      th.setAttribute("scope", "col");
+      tr.appendChild(th);
+    });
+    rEls.thead.appendChild(tr);
+
+    // rows (newest first)
+    rEls.body.innerHTML = "";
+    var start = (pages - RESEARCH.page) * RESEARCH.pageSize;
+    var slice = rows.slice(start, start + RESEARCH.pageSize).reverse();
+    var frag = document.createDocumentFragment();
+    slice.forEach(function (r) {
+      var trr = document.createElement("tr");
+      var cells;
+      if (tab === "ticks") {
+        var sideTxt = r.side === "1" ? "1 \u00b7 sell-initiated"
+          : (r.side === "2" ? "2 \u00b7 buy-initiated"
+          : (r.side === "4" ? "4 \u00b7 neutral" : "\u2014"));
+        cells = [r.time, fmtNum(r.price, 3), fmtVol(r.volume), sideTxt];
+      } else {
+        cells = [r.datetime, fmtNum(r.open, 3), fmtNum(r.high, 3), fmtNum(r.low, 3),
+                 fmtNum(r.close, 3), fmtVol(r.volume), fmtNum(r.turnover_hkd, 0)];
+      }
+      cells.forEach(function (txt, ci) {
+        var td = document.createElement("td");
+        td.textContent = txt;
+        if (tab === "ticks" && ci === 3) td.className = "r-side";
+        trr.appendChild(td);
+      });
+      frag.appendChild(trr);
+    });
+    rEls.body.appendChild(frag);
+
+    // count + pager + state
+    rEls.count.textContent = researchCountText(tab, rows, total);
+    rEls.pageinfo.textContent = "Page " + RESEARCH.page + " of " + pages + (rows.length ? " \u00b7 " + rows.length + " rows" : "");
+    rEls.prev.disabled = RESEARCH.page <= 1;
+    rEls.next.disabled = RESEARCH.page >= pages;
+    if (!rows.length) {
+      setResearchState(tab === "bars5" && RESEARCH.date !== "all"
+        ? "No five-minute bars recorded for " + RESEARCH.date + "."
+        : "No data available for this tab.");
+    } else {
+      setResearchState("");
+    }
+  }
+
+  function researchLoading() {
+    setResearchState("Loading 1596.HK September 2026 research data\u2026");
+    rEls.body.innerHTML = "";
+    rEls.count.textContent = "";
+    rEls.retry.hidden = false;
+    rEls.retry.disabled = true;
+  }
+
+  function researchError(msg) {
+    setResearchState("Failed to load research data: " + msg, "error");
+    rEls.count.textContent = "";
+    rEls.retry.hidden = false;
+    rEls.retry.disabled = false;
+  }
+
+  function switchResearchTab(tab, fromJump) {
+    RESEARCH.tab = tab;
+    RESEARCH.page = 1;
+    document.querySelectorAll(".research-tab").forEach(function (b) {
+      var on = b.dataset.rtab === tab;
+      b.classList.toggle("is-active", on);
+      b.setAttribute("aria-selected", on ? "true" : "false");
+      b.tabIndex = on ? 0 : -1;
+    });
+    if (rEls.panel) {
+      var active = document.querySelector(".research-tab.is-active");
+      if (active) rEls.panel.setAttribute("aria-labelledby", active.id);
+    }
+    rEls.dateFilter.hidden = tab !== "bars5";
+    researchDownloadFor(tab);
+    if (RESEARCH.data) renderResearchTable();
+  }
+
+  function showResearchPanel() {
+    RESEARCH.open = true;
+    if (!rEls.panel) cacheREls();
+    rEls.panel.hidden = false;
+    if (!RESEARCH.data) {
+      researchLoading();
+      researchLoadAll().then(function () {
+        if (!RESEARCH.open) return;
+        rEls.retry.hidden = true;
+        renderResearchTable();
+      }).catch(function (err) {
+        if (!RESEARCH.open) return;
+        researchError(err && err.message ? err.message : "unknown error");
+      });
+    }
+  }
+
+  function hideResearchPanel() {
+    RESEARCH.open = false;
+    if (rEls.panel) rEls.panel.hidden = true;
+  }
+
+  function updateResearchFor(norm) {
+    if (!rEls.panel) cacheREls();
+    if (norm === RESEARCH.sym) {
+      showResearchPanel();
+    } else if (RESEARCH.open) {
+      hideResearchPanel();
+    }
+  }
+
+  function initResearch() {
+    cacheREls();
+    var order = ["daily", "bars5", "ticks"];
+    document.querySelectorAll(".research-tab").forEach(function (btn) {
+      btn.addEventListener("click", function () { switchResearchTab(btn.dataset.rtab); });
+      btn.addEventListener("keydown", function (ev) {
+        var idx = order.indexOf(RESEARCH.tab);
+        var next = null;
+        if (ev.key === "ArrowRight") next = order[(idx + 1) % order.length];
+        else if (ev.key === "ArrowLeft") next = order[(idx - 1 + order.length) % order.length];
+        else if (ev.key === "Home") next = order[0];
+        else if (ev.key === "End") next = order[order.length - 1];
+        if (next) {
+          ev.preventDefault();
+          switchResearchTab(next, true);
+          var b = document.querySelector('.research-tab[data-rtab="' + next + '"]');
+          if (b) b.focus();
+        }
+      });
+    });
+    rEls.dateSel.addEventListener("change", function () {
+      RESEARCH.date = rEls.dateSel.value;
+      RESEARCH.page = 1;
+      if (RESEARCH.data) renderResearchTable();
+    });
+    rEls.prev.addEventListener("click", function () {
+      if (RESEARCH.page > 1) { RESEARCH.page--; renderResearchTable(); }
+    });
+    rEls.next.addEventListener("click", function () {
+      var pages = Math.max(1, Math.ceil(researchRowsFor(RESEARCH.tab).length / RESEARCH.pageSize));
+      if (RESEARCH.page < pages) { RESEARCH.page++; renderResearchTable(); }
+    });
+    rEls.retry.addEventListener("click", function () {
+      if (!RESEARCH.data) {
+        researchLoading();
+        researchLoadAll(true).then(function () {
+          rEls.retry.hidden = true;
+          renderResearchTable();
+        }).catch(function (err) {
+          researchError(err && err.message ? err.message : "unknown error");
+        });
+      } else {
+        renderResearchTable();
+      }
+    });
+    $("research-close").addEventListener("click", hideResearchPanel);
+    var jump = $("research-jump");
+    if (jump) {
+      jump.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        showResearchPanel();
+        rEls.panel.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+    switchResearchTab("daily");
+  }
+
   /* ---------------------------- init ---------------------------- */
   function restorePrefs() {
     try {
@@ -605,6 +940,7 @@
   }
 
   function init() {
+    initResearch();
     restorePrefs();
     els.watchlistLoading.hidden = false;
     api("/api/defaults", {})

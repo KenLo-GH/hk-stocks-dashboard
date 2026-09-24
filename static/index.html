@@ -37,7 +37,7 @@
              placeholder="Enter HKEX code: 700, 0700 or 0700.HK" value="0700">
       <button type="submit" class="btn btn-primary">Load</button>
     </form>
-    <p class="hint">Accepts <code>700</code>, <code>0700</code> or <code>0700.HK</code> — normalized to Yahoo-style symbols like <code>0700.HK</code> (EastMoney codes are derived automatically).</p>
+    <p class="hint">Accepts <code>700</code>, <code>0700</code> or <code>0700.HK</code> — normalized to Yahoo-style symbols like <code>0700.HK</code> (EastMoney codes are derived automatically). · <a href="#research-panel" id="research-jump">1596.HK · September 2026 research data ↓</a></p>
   </section>
 
   <section class="watchlist" aria-label="Watchlist">
@@ -112,6 +112,63 @@
         <tbody id="data-body"></tbody>
       </table>
       <div id="table-state" class="state-line" hidden></div>
+    </div>
+  </section>
+
+  <section id="research-panel" class="research-panel" aria-label="1596.HK September 2026 research data" hidden>
+    <div class="research-head">
+      <div>
+        <h2>1596.HK · September 2026 research data</h2>
+        <p class="muted small">YICHEN IND · recovered dataset · retrieved 2026-09-24 (HKT) · prices in HKD · research use only — <strong>not investment advice</strong></p>
+      </div>
+      <div class="research-head-actions">
+        <span class="pill research-badge">research dataset</span>
+        <button id="research-close" class="btn btn-small" type="button" aria-label="Close 1596.HK research data section">✕</button>
+      </div>
+    </div>
+
+    <div class="research-tabs" role="tablist" aria-label="1596.HK September 2026 datasets">
+      <button type="button" class="chip research-tab is-active" id="r-tab-daily" role="tab" aria-selected="true" aria-controls="r-panel" data-rtab="daily">Daily</button>
+      <button type="button" class="chip research-tab" id="r-tab-bars5" role="tab" aria-selected="false" aria-controls="r-panel" data-rtab="bars5" tabindex="-1">5-minute</button>
+      <button type="button" class="chip research-tab" id="r-tab-ticks" role="tab" aria-selected="false" aria-controls="r-panel" data-rtab="ticks" tabindex="-1">Sep 24 individual trades</button>
+    </div>
+
+    <div id="r-panel" role="tabpanel" aria-labelledby="r-tab-daily">
+      <div class="research-controls">
+        <div id="r5-filter" class="research-filter" hidden>
+          <label for="r5-date">Date (5-minute bars)</label>
+          <select id="r5-date"><option value="all">All dates (Sep 1–24)</option></select>
+        </div>
+        <span class="muted small" id="r-count" role="status" aria-live="polite"></span>
+        <a id="r-download" class="btn btn-small research-dl" href="/static/data/01596/01596_daily_ohlc.csv" download>Download CSV</a>
+        <button id="r-retry" class="btn btn-small" type="button" hidden>Retry</button>
+      </div>
+
+      <div class="table-wrap">
+        <table id="r-table">
+          <caption class="visually-hidden">1596.HK September 2026 dataset table</caption>
+          <thead id="r-thead"><tr><th>Date</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Volume</th><th>Turnover (HKD)</th></tr></thead>
+          <tbody id="r-body"></tbody>
+        </table>
+        <div id="r-state" class="state-line" hidden></div>
+      </div>
+
+      <nav class="research-pager" aria-label="Table pages">
+        <button type="button" class="btn btn-small" id="r-prev" disabled>← Prev</button>
+        <span class="muted small" id="r-pageinfo">Page 1 of 1</span>
+        <button type="button" class="btn btn-small" id="r-next" disabled>Next →</button>
+      </nav>
+
+      <div class="research-notes">
+        <p><strong>Individual trades:</strong> only the <strong>Sep 24</strong> file contains genuine individual transactions (9 trades, 10:22:18–14:00:25 HKT). Transaction ticks for <strong>Sep 1–23 were unavailable from free sources</strong> (Tencent, EastMoney and Sina endpoints verified 2026-09-24). The Daily and 5-minute tables are <em>aggregated bars, not individual transactions</em>.</p>
+        <p><strong>Side legend:</strong> <code>1</code> = sell-initiated · <code>2</code> = buy-initiated · <code>4</code> = neutral.</p>
+        <p class="muted small"><strong>Files:</strong>
+          <a href="/static/data/01596/01596_daily_ohlc.csv" download>daily OHLC (18 rows)</a> ·
+          <a href="/static/data/01596/01596_5min_bars.csv" download>5-minute bars (1,169 rows)</a> ·
+          <a href="/static/data/01596/01596_1min_bars_today.csv" download>1-minute bars, Sep 24 only (232 rows)</a> ·
+          <a href="/static/data/01596/01596_ticks_today_20260924.csv" download>individual trades, Sep 24 (9 rows)</a> ·
+          <a href="/static/data/01596/sources.txt">sources &amp; full limitations</a></p>
+      </div>
     </div>
   </section>
 

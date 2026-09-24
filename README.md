@@ -72,6 +72,42 @@ for **Hong Kong Stock Exchange (HKEX)** equities.
   retry of a retryable failure, and `live_verify.py` (real network)
   re-checks end-to-end availability.
 
+## 1596.HK — September 2026 research dataset
+
+A dedicated, clearly-labeled **research data** section is built into the
+frontend for the recovered 1596.HK (YICHEN IND) September 2026 dataset.
+The validated CSVs are shipped as static files under
+`static/data/01596/` (byte-identical copies of the source files in
+`data/01596/`):
+
+| File | Contents |
+| --- | --- |
+| `01596_daily_ohlc.csv` | daily OHLCV, 18 rows, 2026-09-01..24 (EastMoney, qfq) |
+| `01596_5min_bars.csv` | 5-minute bars, 1169 rows, 18 trading days (EastMoney, qfq) |
+| `01596_1min_bars_today.csv` | 1-minute bars, 232 rows, 2026-09-24 only |
+| `01596_ticks_today_20260924.csv` | individual trades, 9 rows, 2026-09-24 up to 14:01 HKT (side: 1 = sell-initiated, 2 = buy-initiated, 4 = neutral) |
+| `sources.txt` | sources, retrieval details, and full limitations |
+
+UI behavior:
+
+* The section appears automatically when **1596.HK** is loaded (any
+  input form: `1596`, `0156`, `1596.HK`) and is also reachable from the
+  permanent jump link in the lookup hint for every other symbol. It can
+  be closed with the ✕ button and re-opened any time.
+* Tabs (A11y tablist, arrow-key navigable): **Daily**, **5-minute**
+  (with a per-date filter), and **Sep 24 individual trades**.
+* Paginated table (50 rows/page, newest first), record-count line, and
+  loading / error (with retry) / empty states.
+* Per-tab **Download CSV** button plus direct download links for all
+  four files and `sources.txt`.
+* Explicit, honest labels: the Daily/5-minute/1-minute tables are
+  **aggregated bars, not individual transactions**; **only the Sep 24
+  file contains genuine individual trades**, and transaction ticks for
+  Sep 1-23 were **unavailable from free sources** (Tencent, EastMoney,
+  Sina — verified 2026-09-24).
+* Tests: `tests/test_research_data.py` (static file integrity vs.
+  `data/01596/`, routes, UI text, row counts).
+
 ## Run
 
     cd /root/hk-stocks-dashboard

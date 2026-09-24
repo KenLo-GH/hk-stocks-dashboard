@@ -188,3 +188,41 @@ main.container { padding-top: 20px; padding-bottom: 40px; display: grid; gap: 18
   .ohlc-grid { grid-template-columns: repeat(2, 1fr); }
   .chart-controls { flex-direction: column; align-items: flex-start; }
 }
+
+/* ---------------- 1596.HK September 2026 research data ---------------- */
+.research-panel {
+  background: linear-gradient(180deg, rgba(56, 189, 248, 0.06) 0%, rgba(56, 189, 248, 0.015) 100%), var(--card);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  border-radius: var(--radius);
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+  scroll-margin-top: 16px;
+}
+.research-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.research-head-actions { display: flex; align-items: center; gap: 10px; }
+.research-badge {
+  color: var(--accent); border-color: rgba(56, 189, 248, 0.5); background: var(--accent-soft);
+}
+.research-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.research-tabs .chip { flex: 0 1 auto; }
+.research-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.research-filter { display: flex; align-items: center; gap: 8px; }
+.research-filter label { color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
+#r5-date {
+  background: var(--card-soft); color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 10px; font: inherit; font-size: 0.85rem; outline: none;
+  max-width: 100%;
+}
+#r5-date:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+#r-count { margin-left: auto; }
+.research-pager { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.research-notes { border-top: 1px solid var(--border); padding-top: 10px; display: grid; gap: 6px; }
+.research-notes p { margin: 0; font-size: 0.82rem; color: var(--text); }
+#r-table td.r-side { color: var(--warn); font-family: var(--font-sans); }
+@media (max-width: 640px) {
+  .research-panel { padding: 14px; }
+  .research-head { flex-direction: column; }
+  #r-count { margin-left: 0; width: 100%; order: 3; }
+  .research-pager { justify-content: center; }
+}

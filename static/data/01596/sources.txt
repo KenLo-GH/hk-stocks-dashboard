@@ -1,0 +1,29 @@
+1596.HK (YICHEN IND / 翼辰实业) — September 2026 research dataset
+Retrieved: 2026-09-24 (HKT). Personal research use only; not licensed for redistribution.
+
+Files (all prices in HKD, 3-decimal tick):
+- 01596_daily_ohlc.csv — daily OHLCV, 18 rows, 2026-09-01..2026-09-24.
+  Source: EastMoney push2his kline API (klt=101, qfq), free/unauthenticated.
+- 01596_5min_bars.csv — 5-minute bars, 1169 rows, 18 trading days,
+  2026-09-01 09:35 .. 2026-09-24 14:25. Source: EastMoney push2his kline (klt=5, qfq).
+- 01596_1min_bars_today.csv — 1-minute bars, 232 rows, 2026-09-24 only
+  (the free EastMoney 1-minute history endpoint returns today only).
+- 01596_ticks_today_20260924.csv — individual trades (ticks), 9 rows,
+  2026-09-24 up to 14:01 HKT. Source: EastMoney push2delay SSE details stream.
+  side legend: 1 = sell-initiated, 2 = buy-initiated (4 = neutral).
+  The f4 field (all 0 in this capture) is an undocumented upstream column.
+
+Limitations:
+- ONLY the 2026-09-24 file contains genuine individual-trade (tick) data.
+  Individual-trade ticks for 2026-09-01..2026-09-23 were NOT available for
+  free (verified 2026-09-24 across Tencent/QQ, EastMoney and Sina endpoints:
+  no historical HK tick feed; Tencent A-share tick endpoints return 0 bytes
+  for HK codes; EastMoney detail endpoints return today only; Sina HK trade
+  endpoints disabled).
+- The daily / 5-minute / 1-minute tables are AGGREGATED BARS, not individual
+  transactions — do not treat them as tick data.
+- 1-minute history beyond the most recent trading day is not available for
+  free from these sources.
+- HK quotes on free feeds may be delayed (Tencent HK feed is 15-min delayed).
+- No explicit license on the upstream endpoints; personal/non-commercial
+  research use only. Not investment advice.
