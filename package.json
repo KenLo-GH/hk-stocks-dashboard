@@ -1,0 +1,19 @@
+{
+  "name": "hk-stocks-dashboard",
+  "version": "1.0.0",
+  "description": "A dependency-free (Python 3 standard library only) single-page web dashboard for **Hong Kong Stock Exchange (HKEX)** equities.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "domparser": "^0.1.1",
+    "jsdom": "^29.1.1"
+  }
+}

@@ -138,9 +138,14 @@
         <div id="r5-filter" class="research-filter" hidden>
           <label for="r5-date">Date (5-minute bars)</label>
           <select id="r5-date"><option value="all">All dates (Sep 1–24)</option></select>
+          <label class="hide-zero-label" for="research-hide-zero">
+            <input type="checkbox" id="research-hide-zero" checked aria-describedby="r-dl-note">
+            Hide zero-volume rows
+          </label>
         </div>
         <span class="muted small" id="r-count" role="status" aria-live="polite"></span>
         <a id="r-download" class="btn btn-small research-dl" href="/static/data/01596/01596_daily_ohlc.csv" download>Download CSV</a>
+        <span class="muted small" id="r-dl-note">Downloads include all rows.</span>
         <button id="r-retry" class="btn btn-small" type="button" hidden>Retry</button>
       </div>
 

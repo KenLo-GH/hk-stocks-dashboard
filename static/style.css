@@ -215,6 +215,14 @@ main.container { padding-top: 20px; padding-bottom: 40px; display: grid; gap: 18
   max-width: 100%;
 }
 #r5-date:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.hide-zero-label {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  color: var(--text); font-size: 0.85rem; white-space: nowrap;
+}
+.hide-zero-label input {
+  width: 16px; height: 16px; accent-color: var(--accent); margin: 0; cursor: pointer;
+}
+#r-dl-note { white-space: nowrap; }
 #r-count { margin-left: auto; }
 .research-pager { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .research-notes { border-top: 1px solid var(--border); padding-top: 10px; display: grid; gap: 6px; }
@@ -223,6 +231,8 @@ main.container { padding-top: 20px; padding-bottom: 40px; display: grid; gap: 18
 @media (max-width: 640px) {
   .research-panel { padding: 14px; }
   .research-head { flex-direction: column; }
+  .research-filter { width: 100%; justify-content: space-between; }
+  .hide-zero-label { font-size: 0.9rem; }
   #r-count { margin-left: 0; width: 100%; order: 3; }
   .research-pager { justify-content: center; }
 }

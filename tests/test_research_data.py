@@ -9,6 +9,10 @@ Verifies:
   filter, pager, record count, download links, side legend, the
   "only Sep 24 file contains individual trades / Sep 1-23 ticks not
   available for free" statement, and that bars are not transactions);
+* the zero-volume filter: index.html carries the accessible checkbox
+  markup and the "Downloads include all rows." note, app.js wires the
+  state/filter/toggle, and the actual filtering rule is exercised against
+  the real CSVs (161 non-zero / 1169 total);
 * app.js wires the section (research module strings present);
 * the shipped CSVs themselves parse with the expected row counts and
   contents (18 daily rows, 1169 five-minute rows, 232 one-minute rows,
@@ -23,6 +27,8 @@ from __future__ import annotations
 import csv
 import hashlib
 import re
+import shutil
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -225,6 +231,97 @@ class ResearchRoutes(unittest.TestCase):
         self.assertIn("<code>2</code> = buy-initiated", html)
         self.assertIn("<code>4</code> = neutral", html)
 
+    def test_research_hide_zero_checkbox_markup(self):
+        html = self._index()
+        # Accessible checkbox beside the 5-minute date filter:
+        self.assertIn('<input type="checkbox" id="research-hide-zero"', html)
+        self.assertIn('for="research-hide-zero"', html)
+        self.assertIn("Hide zero-volume rows", html)
+        # Checked by default.
+        self.assertIn(
+            '<input type="checkbox" id="research-hide-zero" checked', html
+        )
+        # The label sits inside the r5-filter row that is only shown on the
+        # 5-minute tab (app.js toggles #r5-filter.hidden per tab), before
+        # the record count:
+        self.assertIn('id="r5-filter"', html)
+        i_filter = html.index('id="r5-filter"')
+        i_label = html.index('for="research-hide-zero"')
+        self.assertGreater(i_label, i_filter)
+        self.assertLess(i_label, html.index('id="r-count"'))
+        # The download note makes clear the CSVs are never filtered:
+        self.assertIn("Downloads include all rows.", html)
+
+    def test_research_hide_zero_wiring(self):
+        js = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+        for needle in (
+            'LS_HIDE_ZERO_KEY = "hk-dashboard.research-hide-zero"',
+            "hideZero: true",
+            'rEls.hideZero = $("research-hide-zero")',
+            "loadHideZeroPref",
+            "saveHideZeroPref",
+            "Number(b.volume) !== 0",
+            'rEls.hideZero.checked = RESEARCH.hideZero = loadHideZeroPref()',
+            'RESEARCH.hideZero = rEls.hideZero.checked',
+        ):
+            self.assertIn(needle, js, msg=needle)
+        # The toggle resets to page 1 and re-renders, but does not reset the
+        # selected date.
+        self.assertIn("RESEARCH.page = 1; // the selected date is preserved", js)
+        # Only the 5-minute (bars5) rows pass through the volume filter;
+        # daily and ticks rows return before it.
+        i_daily = js.index('if (tab === "daily") return RESEARCH.data.daily;')
+        i_ticks = js.index('if (tab === "ticks") return RESEARCH.data.ticks;')
+        i_filter = js.index("Number(b.volume) !== 0")
+        self.assertLess(i_daily, i_filter)
+        self.assertLess(i_ticks, i_filter)
+
+    def test_research_hide_zero_css(self):
+        css = (ROOT / "static" / "style.css").read_text(encoding="utf-8")
+        self.assertIn(".hide-zero-label", css)
+        # Mobile: the filter row must stay usable on small screens - the
+        # .hide-zero-label rule must sit inside a 640px media block.
+        marker = "@media (max-width: 640px)"
+        self.assertIn(marker, css)
+        # the research panel rules live in the file's last 640px block
+        block = css[css.rindex(marker): css.rindex(marker) + 400]
+        self.assertIn(".hide-zero-label", block, msg="hide-zero rule inside 640px media block")
+
+    def test_research_hide_zero_filter_logic(self):
+        """Exercise the actual filtering rule against the real CSV rows."""
+        rows = _read_csv("01596_5min_bars.csv")
+
+        # The exact predicate used by app.js (String volume -> Number):
+        keep = [r for r in rows if float(r["volume"]) != 0]
+        self.assertEqual(len(rows), 1169)
+        self.assertEqual(len(keep), 161)
+        self.assertEqual(len(rows) - len(keep), 1008)
+        for r in keep:
+            self.assertNotEqual(float(r["volume"]), 0)
+
+        # Date filter composed with hide-zero, as researchRowsFor does it:
+        def rows_for(date: str, hide_zero: bool) -> list[dict]:
+            out = [
+                r for r in rows
+                if date == "all" or r["datetime"][:10] == date
+            ]
+            if hide_zero:
+                out = [r for r in out if float(r["volume"]) != 0]
+            return out
+
+        self.assertEqual(len(rows_for("all", True)), 161)
+        self.assertEqual(len(rows_for("all", False)), 1169)
+        self.assertEqual(len(rows_for("2026-09-24", False)), 47)
+        self.assertEqual(len(rows_for("2026-09-24", True)), 5)
+        # Page counts the UI would derive (pageSize = 50, newest first):
+        self.assertEqual((len(rows_for("all", True)) + 49) // 50, 4)
+        self.assertEqual((len(rows_for("all", False)) + 49) // 50, 24)
+
+        # Genuine transaction rows are never touched by the filter:
+        ticks = _read_csv("01596_ticks_today_20260924.csv")
+        self.assertEqual(len(ticks), 9)
+        self.assertEqual(len([t for t in ticks if float(t["volume"]) != 0]), 9)
+
     def test_research_accessibility_and_mobile(self):
         html = self._index()
         css = (ROOT / "static" / "style.css").read_text(encoding="utf-8")
@@ -252,6 +349,7 @@ class AppJsResearchWiring(unittest.TestCase):
             "Loading 1596.HK September 2026 research data",
             "Failed to load research data",
             "No five-minute bars recorded for",
+            "research-hide-zero",
             "sell-initiated",
             "buy-initiated",
             "1596.HK",
@@ -259,6 +357,43 @@ class AppJsResearchWiring(unittest.TestCase):
             self.assertIn(needle, js, msg=needle)
         # The module is actually invoked on startup:
         self.assertIn("initResearch();", js)
+
+
+class AppJsHideZeroScript(unittest.TestCase):
+    def test_hide_zero_jsdom_script_present(self):
+        p = ROOT / "tests" / "test_hide_zero_frontend.js"
+        self.assertTrue(p.is_file(), "jsdom functional script must ship")
+        text = p.read_text(encoding="utf-8")
+        for needle in (
+            "research-hide-zero",
+            "Hide zero-volume rows",
+            "Downloads include all rows.",
+            # behaviour-level checks the script performs:
+            '"Page 1 of 4"',
+            '"Page 1 of 24"',
+            "zero-volume rows hidden",
+            "selected date is preserved",
+        ):
+            self.assertIn(needle, text, msg=needle)
+
+    def test_hide_zero_jsdom_script_runs_when_node_available(self):
+        """Run the real jsdom test (real HTML + JS + real CSVs) when node is
+        on PATH; skipped otherwise so the suite stays green on minimal
+        images."""
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node not on PATH")
+        proc = subprocess.run(
+            [str(node), str(ROOT / "tests" / "test_hide_zero_frontend.js")],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        self.assertEqual(
+            proc.returncode, 0,
+            msg="stdout: %s\nstderr: %s" % (proc.stdout, proc.stderr),
+        )
+        self.assertIn("OK", proc.stdout)
 
 
 if __name__ == "__main__":

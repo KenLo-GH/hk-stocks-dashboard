@@ -6,6 +6,7 @@
   var LS_FAV_KEY = "hk-dashboard.favorites.v1";
   var LS_RANGE_KEY = "hk-dashboard.last-range";
   var LS_TYPE_KEY = "hk-dashboard.last-chart-type";
+  var LS_HIDE_ZERO_KEY = "hk-dashboard.research-hide-zero";
 
   var $ = function (id) { return document.getElementById(id); };
   var els = {
@@ -599,6 +600,7 @@
     tab: "daily",
     page: 1,
     date: "all",
+    hideZero: true,
     open: false
   };
   var rEls = {};
@@ -616,6 +618,7 @@
     rEls.pageinfo = $("r-pageinfo");
     rEls.dateFilter = $("r5-filter");
     rEls.dateSel = $("r5-date");
+    rEls.hideZero = $("research-hide-zero");
   }
 
   function parseCsv(text) {
@@ -695,13 +698,36 @@
     sel.value = RESEARCH.date;
   }
 
-  function researchRowsFor(tab) {
+  function loadHideZeroPref() {
+    // Default: hide zero-volume rows. Stored '1'/'true' -> true,
+    // '0'/'false' -> false; anything else (absent/corrupt) falls back to the
+    // default so a broken localStorage can never break the UI.
+    var v = true;
+    try {
+      var raw = localStorage.getItem(LS_HIDE_ZERO_KEY);
+      if (raw === "0" || raw === "false") v = false;
+      else if (raw === "1" || raw === "true") v = true;
+    } catch (e) { /* private mode / storage disabled */ }
+    return v;
+  }
+  function saveHideZeroPref(v) {
+    try {
+      localStorage.setItem(LS_HIDE_ZERO_KEY, v ? "1" : "0");
+    } catch (e) { /* private mode / storage disabled */ }
+  }
+
+  function researchRowsFor(tab, includeZero) {
     if (!RESEARCH.data) return [];
     if (tab === "daily") return RESEARCH.data.daily;
     if (tab === "ticks") return RESEARCH.data.ticks;
     var rows = RESEARCH.data.bars5;
     if (RESEARCH.date !== "all") {
       rows = rows.filter(function (b) { return b.datetime.slice(0, 10) === RESEARCH.date; });
+    }
+    if (RESEARCH.hideZero && !includeZero) {
+      // Only the aggregated 5-minute bars are affected: daily bars and
+      // genuine individual transaction rows (ticks) are never filtered.
+      rows = rows.filter(function (b) { return Number(b.volume) !== 0; });
     }
     return rows;
   }
@@ -714,8 +740,10 @@
   function researchCountText(tab, rows, total) {
     if (tab === "daily") return rows.length + " trading days (Sep 1\u201324)";
     if (tab === "ticks") return rows.length + " individual trades \u2014 2026-09-24 only (10:22:18\u201314:00:25 HKT)";
-    if (RESEARCH.date === "all") return total + " five-minute bars \u00b7 18 trading days (Sep 1\u201324)";
-    return rows.length + " of " + total + " five-minute bars on " + RESEARCH.date;
+    var shown = rows.length === total ? total : rows.length + " of " + total;
+    var note = RESEARCH.hideZero ? " \u00b7 zero-volume rows hidden" : "";
+    if (RESEARCH.date === "all") return shown + " five-minute bars \u00b7 18 trading days (Sep 1\u201324)" + note;
+    return shown + " five-minute bars on " + RESEARCH.date + note;
   }
 
   function researchDownloadFor(tab) {
@@ -739,8 +767,10 @@
 
   function renderResearchTable() {
     var tab = RESEARCH.tab;
-    var total = RESEARCH.data ? researchRowsFor(tab).length : 0;
     var rows = researchRowsFor(tab);
+    // The total ignores the zero-volume filter so the count can show
+    // how many of the selected date's bars are visible ("N of M").
+    var total = RESEARCH.data ? researchRowsFor(tab, true).length : 0;
     var pages = Math.max(1, Math.ceil(rows.length / RESEARCH.pageSize));
     if (RESEARCH.page > pages) RESEARCH.page = pages;
     if (RESEARCH.page < 1) RESEARCH.page = 1;
@@ -887,6 +917,15 @@
       RESEARCH.page = 1;
       if (RESEARCH.data) renderResearchTable();
     });
+    if (rEls.hideZero) {
+      rEls.hideZero.checked = RESEARCH.hideZero = loadHideZeroPref();
+      rEls.hideZero.addEventListener("change", function () {
+        RESEARCH.hideZero = rEls.hideZero.checked;
+        saveHideZeroPref(RESEARCH.hideZero);
+        RESEARCH.page = 1; // the selected date is preserved
+        if (RESEARCH.data) renderResearchTable();
+      });
+    }
     rEls.prev.addEventListener("click", function () {
       if (RESEARCH.page > 1) { RESEARCH.page--; renderResearchTable(); }
     });
